@@ -8,7 +8,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "")
   SET(CMAKE_BUILD_TYPE "Release")
 endif()
 
-SET(COMPILE_DEFINITIONS -Werror -Wall)
+SET(COMPILE_DEFINITIONS -Werror -Wall )
 
 include(CheckLibraryExists) 
 include(CheckIncludeFiles)
@@ -55,6 +55,7 @@ add_subdirectory(plugins/output_http)
 add_subdirectory(plugins/output_rtsp)
 add_subdirectory(plugins/output_udp)
 add_subdirectory(plugins/output_viewer)
+add_subdirectory(plugins/output_ws)
 
 #
 # mjpg_streamer executable

@@ -42,6 +42,7 @@ Output plugins:
 * output_rtsp
 * output_udp
 * output_viewer ([documentation](mjpg-streamer-experimental/plugins/output_viewer/README.md))
+* output_ws
 
 Building & Installation
 =======================
