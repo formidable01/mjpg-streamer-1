@@ -49,31 +49,32 @@
 
 #include "output_ws.h"
 
-const char* OUTPUT_PLUGIN_NAME = "Websocket output plugin";
+namespace
+{
+    const char* OUTPUT_PLUGIN_NAME = "Websocket output plugin";
 
-// Standard mjpg-streamer plugin variables
-static pthread_t worker;
-static globals *pglobal;
-static int fd, delay, max_frame_size;
+    // Standard mjpg-streamer plugin variables
+    pthread_t worker;
+    globals *pglobal;
+    int fd;
+    int delay;
+    int max_frame_size;
+    unsigned char *frame = NULL;
+    int input_number = 0;
 
-// Websocket variables
-// ------------------------
-// int portNumber
-// string streamName
-// string videoDevicePath
-// bool useCert
-// string certPath
-// string keyPath
+    // Websocket variables
+    // ------------------------
+    // int portNumber 8200-8300?    -p,--port
+    // string videoDevicePath       -d,--device
+    // bool useCert                 -s,--secure
+    // string certPath              -c,--cert
+    // string keyPath               -k,--key
 
-
-// zmq stuff
-// ------------------------
-// static char *registerUrl = "ipc:///tmp/mjpg-streamer-register.ipc";
-// static char *cameraUrl = "ipc:///tmp/mjpg-streamer-%s.ipc";
-// char *name = "video0";
-// bool encode = false;
-static unsigned char *frame = NULL;
-static int input_number = 0;
+    std::atomic<bool> readyToSend( false );
+    uv_async_t closeEvent;
+    std::thread t;
+    uWS::Group<uWS::SERVER> *tServerGroup = nullptr;
+}
 
 /******************************************************************************
 Description.: print a help message
@@ -91,12 +92,6 @@ void help(void)
     //         " [-e | --encode ]........: Encode as basae64 \n" \
     //         " ---------------------------------------------------------------\n");
 }
-
-std::atomic<bool> readyToSend( false );
-uv_async_t closeEvent;
-std::thread t;
-uWS::Group<uWS::SERVER> *tServerGroup = nullptr;
-
 
 /******************************************************************************
 Description.: clean up allocated ressources
@@ -230,7 +225,6 @@ void *worker_thread(void *args)
    
     return NULL;
 }
-
 
 
 /*** plugin interface functions ***/
