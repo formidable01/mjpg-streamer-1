@@ -11,6 +11,7 @@ variables:
     # Dependency version. I.e. "latest", "1.0.0", "31.0.1", etc
     LIBUV_VERSION: "1.1.0"
     LIBUWS_VERSION: "0.11.0"
+    LIBJPEG-TURBO_VERSION: "1.5.0"
 
 ###############
 # arm
@@ -23,14 +24,15 @@ build:arm:
     variables:
         ARCH: "armhf"
     script:
-        - apt-get install -y libjpeg8-dev
+        - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/libjpeg-turbo/libjpeg-turbo_${LIBJPEG-TURBO_VERSION}_${ARCH}.deb
         - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/libuv/libuv_${LIBUV_VERSION}_${ARCH}.deb
         - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/uwebsockets/uwebsockets_${LIBUWS_VERSION}_${ARCH}.deb
+        - dpkg -i libjpeg-turbo_${LIBJPEG-TURBO_VERSION}_${ARCH}.deb
         - dpkg -i libuv_${LIBUV_VERSION}_${ARCH}.deb
         - dpkg -i uwebsockets_${LIBUWS_VERSION}_${ARCH}.deb
         - mkdir temp
         - cd temp
-        - cmake ..
+        - cmake -DCMAKE_INSTALL_PREFIX=/usr ..
         - make -j
         - mkdir -p ../build
         - make install DESTDIR=../build
@@ -78,14 +80,15 @@ build:amd64:
     variables:
         ARCH: "amd64"
     script:
-        - apt-get install -y libjpeg8-dev
+        - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/libjpeg-turbo/libjpeg-turbo_${LIBJPEG-TURBO_VERSION}_${ARCH}.deb
         - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/libuv/libuv_${LIBUV_VERSION}_${ARCH}.deb
         - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/uwebsockets/uwebsockets_${LIBUWS_VERSION}_${ARCH}.deb
+        - dpkg -i libjpeg-turbo_${LIBJPEG-TURBO_VERSION}_${ARCH}.deb
         - dpkg -i libuv_${LIBUV_VERSION}_${ARCH}.deb
         - dpkg -i uwebsockets_${LIBUWS_VERSION}_${ARCH}.deb
         - mkdir temp
         - cd temp
-        - cmake ..
+        - cmake -DCMAKE_INSTALL_PREFIX=/usr ..
         - make -j
         - mkdir -p ../build
         - make install DESTDIR=../build
