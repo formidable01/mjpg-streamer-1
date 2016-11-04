@@ -8,36 +8,30 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "")
   SET(CMAKE_BUILD_TYPE "Release")
 endif()
 
+# Compiler flags
 SET(COMPILE_DEFINITIONS -Werror -Wall )
 
+# Include additional cmake helpers
 include(CheckLibraryExists) 
 include(CheckIncludeFiles)
 include(FeatureSummary)
 
+# Include mjpg-streamer specific cmake macros
 include(mjpg_streamer_utils)
 
-#
+# --------------------------
 # Options
-#
 
-add_feature_option(WXP_COMPAT "Enable compatibility with WebcamXP" OFF)
+# Set plugin install directory
+set (MJPG_STREAMER_PLUGIN_INSTALL_PATH "lib")
 
-if (WXP_COMPAT)
-    add_definitions(-DWXP_COMPAT)
-endif (WXP_COMPAT)
-
-set (MJPG_STREAMER_PLUGIN_INSTALL_PATH "lib/mjpg-streamer")
-
-#
+# --------------------------
 # Global dependencies
-#
 
 find_library(JPEG_LIB jpeg)
 
-
-#
+# --------------------------
 # Input plugins
-#
 
 add_subdirectory(plugins/input_file)
 add_subdirectory(plugins/input_http)
@@ -46,9 +40,8 @@ add_subdirectory(plugins/input_raspicam)
 add_subdirectory(plugins/input_ptp2)
 add_subdirectory(plugins/input_uvc)
 
-#
+# --------------------------
 # Output plugins
-#
 
 add_subdirectory(plugins/output_file)
 add_subdirectory(plugins/output_http)
@@ -57,9 +50,8 @@ add_subdirectory(plugins/output_udp)
 add_subdirectory(plugins/output_viewer)
 add_subdirectory(plugins/output_ws)
 
-#
-# mjpg_streamer executable
-#
+# --------------------------
+# Build Installation
 
 # This adds the plugin installation directory to the default DT_RUNPATH, so
 # that the user shouldn't need to set LD_LIBRARY_PATH if using 'make install'
@@ -71,29 +63,22 @@ set (CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 set (CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${MJPG_STREAMER_PLUGIN_INSTALL_PATH})
 set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
+# Compile executable
+add_executable(mjpg_streamer mjpg_streamer.c utils.c)
 
-add_executable(mjpg_streamer mjpg_streamer.c
-                             utils.c)
-
+# Link libraries
 target_link_libraries(mjpg_streamer pthread dl)
+
+# Install executable
 install(TARGETS mjpg_streamer DESTINATION bin)
 
-#
-# www directory
-#
-
-install(DIRECTORY www DESTINATION share/mjpg-streamer)
-
-
-#
+# --------------------------
 # Show enabled/disabled features
-#
 
 feature_summary(WHAT ALL)
 
-#
+# --------------------------
 # Final warning
-#
 
 if("${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_BINARY_DIR}")
   message(WARNING "The source directory is the same as binary directory. \"make clean\" may damage the source tree")
