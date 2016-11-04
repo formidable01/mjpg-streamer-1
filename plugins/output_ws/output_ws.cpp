@@ -49,9 +49,7 @@
 
 #include "output_ws.h"
 
-
-
-#define OUTPUT_PLUGIN_NAME "Websocket output plugin"
+const char* OUTPUT_PLUGIN_NAME = "Websocket output plugin";
 
 // Standard mjpg-streamer plugin variables
 static pthread_t worker;
@@ -84,13 +82,14 @@ Return Value: -
 ******************************************************************************/
 void help(void)
 {
-    fprintf(stderr, " ---------------------------------------------------------------\n" \
-            " Help for output plugin..: " OUTPUT_PLUGIN_NAME "\n" \
-            " ---------------------------------------------------------------\n" \
-            " The following parameters can be passed to this plugin:\n\n" \
-            " [-n | --name ]..........: Camera name for ZeroMQ queues\n" \
-            " [-e | --encode ]........: Encode as basae64 \n" \
-            " ---------------------------------------------------------------\n");
+    // TODO
+    // fprintf(stderr, " ---------------------------------------------------------------\n" \
+    //         " Help for output plugin..: " OUTPUT_PLUGIN_NAME "\n" \
+    //         " ---------------------------------------------------------------\n" \
+    //         " The following parameters can be passed to this plugin:\n\n" \
+    //         " [-n | --name ]..........: Camera name for ZeroMQ queues\n" \
+    //         " [-e | --encode ]........: Encode as basae64 \n" \
+    //         " ---------------------------------------------------------------\n");
 }
 
 std::atomic<bool> readyToSend( false );
@@ -246,7 +245,7 @@ int output_init(output_parameter *param)
 	int i;
     delay = 0;
 
-    param->argv[0] = OUTPUT_PLUGIN_NAME;
+    param->argv[0] = (char*)OUTPUT_PLUGIN_NAME;
 
     /* show all parameters for DBG purposes */
     for(i = 0; i < param->argc; i++) 
