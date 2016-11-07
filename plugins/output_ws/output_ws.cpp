@@ -209,9 +209,7 @@ void *worker_thread(void *args)
         /* allow others to access the global buffer again */
         pthread_mutex_unlock(&pglobal->in[input_number].db);
 
-        DBG("sending frame");
-
-        LOG( "Framesize: %d\n", frame_size );
+        DBG( "Framesize: %d\n", frame_size );
 
         // Send frame here
         if( readyToSend )
