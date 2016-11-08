@@ -549,16 +549,27 @@ int uvcGrab(struct vdIn *vd)
 #define HEADERFRAME1 0xaf
     int ret;
 
-    if(vd->streamingState == STREAMING_OFF) {
-        if(video_enable(vd))
+    if(vd->streamingState == STREAMING_OFF) 
+    {
+        // Enable video if necessary
+        if( video_enable(vd) )
+        {
             goto err;
+        }
     }
+
+    // Clear the vd buffer
     memset(&vd->buf, 0, sizeof(struct v4l2_buffer));
+
+    // Set the buffer type and memory mode
     vd->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     vd->buf.memory = V4L2_MEMORY_MMAP;
 
+    // Dequeue the buffer
     ret = xioctl(vd->fd, VIDIOC_DQBUF, &vd->buf);
-    if(ret < 0) {
+
+    if(ret < 0) 
+    {
         perror("Unable to dequeue buffer");
         goto err;
     }
@@ -579,13 +590,17 @@ int uvcGrab(struct vdIn *vd)
         memcpy (vd->tmpbuffer + HEADERFRAME1 + sizeof(dht_data), vd->mem[vd->buf.index] + HEADERFRAME1, (vd->buf.bytesused - HEADERFRAME1));
         */
 
+        // Copy the frame to a temp buffer
         memcpy(vd->tmpbuffer, vd->mem[vd->buf.index], vd->buf.bytesused);
+
+        // Set the temp bytes used and timestamp
         vd->tmpbytesused = vd->buf.bytesused;
         vd->tmptimestamp = vd->buf.timestamp;
 
         if(debug)
             fprintf(stderr, "bytes in used %d \n", vd->buf.bytesused);
         break;
+
     case V4L2_PIX_FMT_RGB565:
     case V4L2_PIX_FMT_YUYV:
     case V4L2_PIX_FMT_UYVY:
@@ -600,7 +615,9 @@ int uvcGrab(struct vdIn *vd)
         break;
     }
 
+    // Requeue the buffer
     ret = xioctl(vd->fd, VIDIOC_QBUF, &vd->buf);
+
     if(ret < 0) {
         perror("Unable to requeue buffer");
         goto err;
