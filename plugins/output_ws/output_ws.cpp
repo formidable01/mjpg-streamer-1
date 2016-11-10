@@ -39,8 +39,9 @@
 #include <stdbool.h>
 #include <dirent.h>
 
-// Use uWebSockets library
+// Using Alex Hultman's uWebSockets library: https://github.com/uWebSockets/uWebSockets
 #include <uWS/uWS.h>
+
 #include <string>
 #include <thread>
 #include <iostream>
@@ -105,7 +106,7 @@ Description.: clean up allocated ressources
 Input Value.: unused argument
 Return Value: -
 ******************************************************************************/
-void worker_cleanup(void *arg)
+void worker_cleanup( void *arg )
 {
     static unsigned char first_run = 1;
 
