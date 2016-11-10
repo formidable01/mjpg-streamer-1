@@ -20,11 +20,19 @@ make install
 
 ### Dependencies
 
+#### build
+- CMake 3.x
+- GCC (version supports C++11 and onwards)
+
 #### input_uvc
-Optional: libv4l2, libjpeg
+- v4l2 (optional)
+- libjpeg (optional)
 
 #### output_ws
-Required: libuws, libuv
+- uWebSockets
+- libuv 1.3+
+- OpenSSL 1.0.x
+- zLib 1.x
 
 ### Usage
 
