@@ -64,7 +64,7 @@ namespace
 
     // Websocket variables
     // ------------------------
-    uint16_t port = 0;          // -p,--port
+    uint16_t port = 8200;       // -p,--port
 
     bool useSSL = false;        // -s,--secure
     std::string certPath{ "" }; // -c,--cert
@@ -378,6 +378,13 @@ int output_init(output_parameter *param)
                 return 1;
             }
         }
+    }
+
+    // Validate port number
+    if( port == 0 )
+    {
+        OPRINT( "ERROR: Please specify a non-zero port!\n" );
+        return 1;
     }
 
     // Validate SSL cert file information, if necessary, and create SSL context
