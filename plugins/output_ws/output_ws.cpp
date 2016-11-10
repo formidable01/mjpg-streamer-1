@@ -64,11 +64,14 @@ namespace
 
     // Websocket variables
     // ------------------------
-    // int portNumber 8200-8300?    -p,--port
-    // string videoDevicePath       -d,--device
-    // bool useCert                 -s,--secure
-    // string certPath              -c,--cert
-    // string keyPath               -k,--key
+    uint16_t port = 0;          // -p,--port
+
+    bool useSSL = false;        // -s,--secure
+    std::string certPath{ "" }; // -c,--cert
+    std::string keyPath{ "" };  // -k, --key
+
+    uS::TLS::Context sslContext;
+
 
     std::atomic<bool> readyToSend( false );
     uv_async_t closeEvent;
@@ -83,14 +86,18 @@ Return Value: -
 ******************************************************************************/
 void help(void)
 {
-    // TODO
-    // fprintf(stderr, " ---------------------------------------------------------------\n" \
-    //         " Help for output plugin..: " OUTPUT_PLUGIN_NAME "\n" \
-    //         " ---------------------------------------------------------------\n" \
-    //         " The following parameters can be passed to this plugin:\n\n" \
-    //         " [-n | --name ]..........: Camera name for ZeroMQ queues\n" \
-    //         " [-e | --encode ]........: Encode as basae64 \n" \
-    //         " ---------------------------------------------------------------\n");
+    std::cerr   << " ---------------------------------------------------------------"
+    << "\n"     << " Help for output plugin: " << OUTPUT_PLUGIN_NAME
+    << "\n"     << " ---------------------------------------------------------------"
+    << "\n"     << " The following parameters can be passed to this plugin:"
+    << "\n\n"   << " [Required]"
+    << "\n"     << " [-p | --port ]..........: Port to listen for websocket connections"
+    << "\n\n"   << " [Optional]"
+    << "\n"     << " [-s | --secure ]........: Use SSL to establish a secure websocket"
+    << "\n"     << " [-c | --cert ]..........: Path to an SSL cert file"
+    << "\n"     << " [-k | --key ]...........: Path to an SSL key file"
+    << "\n"     << " ---------------------------------------------------------------" 
+    << std::endl;
 }
 
 /******************************************************************************
@@ -104,17 +111,19 @@ void worker_cleanup(void *arg)
 
     if( !first_run ) 
     {
-        DBG("already cleaned up ressources\n");
+        DBG("Already cleaned up ressources\n");
         return;
     }
 
     first_run = 0;
-    OPRINT("cleaning up ressources allocated by worker thread\n");
+    OPRINT( "Cleaning up resources allocated by worker thread\n" );
 
-    if(frame != NULL) {
-        free(frame);
+    if( frame != NULL ) 
+    {
+        free( frame );
     }
-    close(fd);
+
+    close( fd );
 
     // Stop broadcasting
     readyToSend = false;
@@ -163,9 +172,14 @@ void *worker_thread(void *args)
 
         std::cout << "Running Server" << std::endl;
 
-        uS::TLS::Context c = uS::TLS::createContext("ssl/cert.pem", "ssl/key.pem" );
-
-        th.listen( 3000, c );
+        if( useSSL == true )
+        {
+            th.listen( port, sslContext );
+        }
+        else
+        {
+            th.listen( port );
+        }
 
         readyToSend = true;
 
@@ -240,12 +254,14 @@ int output_init(output_parameter *param)
     param->argv[0] = (char*)OUTPUT_PLUGIN_NAME;
 
     /* show all parameters for DBG purposes */
-    for(i = 0; i < param->argc; i++) 
+    for( i = 0; i < param->argc; i++ ) 
     {
-        DBG("argv[%d]=%s\n", i, param->argv[i]);
+        DBG( "argv[%d]=%s\n", i, param->argv[i] );
     }
 
     reset_getopt();
+
+    // Parse all options
     while(1) 
     {
         int option_index = 0;
@@ -253,46 +269,143 @@ int output_init(output_parameter *param)
 
         static struct option long_options[] = 
         {
-            {"h", no_argument, 0, 0 },
-            {"help", no_argument, 0, 0},
-            {0, 0, 0, 0}
+            { "h",      no_argument,        0, 0 },
+            { "help",   no_argument,        0, 0 },
+            { "p",      required_argument,  0, 0 },
+            { "port",   required_argument,  0, 0 },
+            { "s",      no_argument,        0, 0 },
+            { "secure", no_argument,        0, 0 },
+            { "c",      required_argument,  0, 0 },
+            { "cert",   required_argument,  0, 0 },
+            { "k",      required_argument,  0, 0 },
+            { "key",    required_argument,  0, 0 },
+            { 0, 0, 0, 0 }
         };
 
-        c = getopt_long_only(param->argc, param->argv, "", long_options, &option_index);
+        // Get the first option passed in from the command line
+        c = getopt_long_only( param->argc, param->argv, "", long_options, &option_index );
 
-        /* no more options to parse */
-        if(c == -1) 
+        // No more options to parse
+        if( c == -1 )
+        {
             break;
-
-        /* unrecognized option */
-        if(c == '?') 
+        }
+        
+        // Unrecognized option
+        if( c == '?' ) 
         {
             help();
             return 1;
         }
 
-        switch(option_index) 
+        switch( option_index ) 
         {
-            /* h, help */
+            // h, help
             case 0:
             case 1:
-                DBG("case 0,1\n");
+            {
+                DBG( "case 0,1\n" );
                 help();
                 return 1;
                 break;
+            }
+            
+            // p, port
+            case 2:
+            case 3:
+            {
+                DBG( "case 2,3\n" );
+                port = atoi( optarg );
+                break;
+            }
+
+            // s, secure
+            case 3:
+            case 4:
+            {
+                DBG( "case 3,4\n" );
+                useSSL = true;
+                break;
+            }
+
+            // c, cert
+            case 5:
+            case 6:
+            {
+                DBG("case 5,6\n");
+                char *tempCertPath = realpath( optarg, NULL );
+
+                if( tempCertPath != nullptr )
+                {
+                    certPath = std::string( (const char*)tempCertPath );
+                }
+                else
+                {
+                    OPRINT( "ERROR: Invalid certificate file path provided!\n" );
+                    free( tempCertPath );
+                    return 1;
+                }
+                
+                free( tempCertPath );
+                break;
+            }
+            
+            // k, key
+            case 7:
+            case 8:
+            {
+                DBG("case 7,8\n");
+                char *tempKeyPath = realpath( optarg, NULL );
+
+                if( tempKeyPath != nullptr )
+                {
+                    keyPath = std::string( (const char*)tempKeyPath );
+                }
+                else
+                {
+                    OPRINT( "ERROR: Invalid key file path provided!\n" );
+                    free( tempKeyPath );
+                    return 1;
+                }
+                
+                free( tempKeyPath );
+                break;
+            }
         }
     }
 
+    // Validate SSL cert file information, if necessary, and create SSL context
+    if( useSSL == true )
+    {
+        if( certPath.length() == 0 || keyPath.length() == 0 )
+        {
+            OPRINT( "ERROR: Specified SSL, but did not provide valid cert and key file paths!\n" );
+            return 1;
+        }
+        else
+        {
+            sslContext = uS::TLS::createContext( certPath.c_str(), keyPath.c_str() );
+
+            if( !sslContext )
+            {
+                OPRINT( "ERROR: Failed to create SSL context!\n" );
+                return 1;
+            }
+        }
+    }
+
+    
     pglobal = param->global;
 
-    if(!(input_number < pglobal->incnt)) 
+    // Validate input plugin count
+    if( !( input_number < pglobal->incnt ) ) 
     {
-        OPRINT("ERROR: the %d input_plugin number is too much only %d plugins loaded\n", input_number, pglobal->incnt);
+        OPRINT( "ERROR: the %d input_plugin number is too much only %d plugins loaded\n", input_number, pglobal->incnt );
         return 1;
     }
 
-    //OPRINT("Camera name.....: %s\n", name);
-    OPRINT("input plugin.....: %d: %s\n", input_number, pglobal->in[input_number].plugin);
+    OPRINT( "input plugin.....: %d: %s\n", input_number, pglobal->in[input_number].plugin );
+
     return 0;
 }
 
