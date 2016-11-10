@@ -16,6 +16,7 @@ if (PLUGIN_INPUT_UVC)
     
     if (NOT JPEG_LIB)
         add_definitions(-DNO_LIBJPEG)
+        MESSAGE( STATUS "BUILDING WITHOUT LIBJPEG" )
     endif (NOT JPEG_LIB)
 
     MJPG_STREAMER_PLUGIN_COMPILE(input_uvc dynctrl.c
@@ -25,10 +26,12 @@ if (PLUGIN_INPUT_UVC)
 
     if (V4L2_LIB)
         target_link_libraries(input_uvc ${V4L2_LIB})
+        MESSAGE( STATUS "USING LIBV4L2" )
     endif (V4L2_LIB)
 
     if (JPEG_LIB)
         target_link_libraries(input_uvc ${JPEG_LIB})
+        MESSAGE( STATUS "USING LIBJPEG" )
     endif (JPEG_LIB)
 
 endif()
