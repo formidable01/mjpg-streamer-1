@@ -12,6 +12,7 @@ variables:
     LIBUV_VERSION: "1.1.0"
     LIBUWS_VERSION: "0.11.0"
     LIBJPEG_TURBO_VERSION: "1.5.0"
+    V4L_UTILS_VERSION: "1.10.1"
 
 ###############
 # arm
@@ -27,9 +28,11 @@ build:arm:
         - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/libjpeg-turbo/libjpeg-turbo_${LIBJPEG_TURBO_VERSION}_${ARCH}.deb
         - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/libuv/libuv_${LIBUV_VERSION}_${ARCH}.deb
         - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/uwebsockets/uwebsockets_${LIBUWS_VERSION}_${ARCH}.deb
+        - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/v4l-utils/v4l-utils_${V4L_UTILS_VERSION}_${ARCH}.deb
         - dpkg -i libjpeg-turbo_${LIBJPEG_TURBO_VERSION}_${ARCH}.deb
         - dpkg -i libuv_${LIBUV_VERSION}_${ARCH}.deb
         - dpkg -i uwebsockets_${LIBUWS_VERSION}_${ARCH}.deb
+        - dpkg -i v4l-utils_${V4L_UTILS_VERSION}_${ARCH}.deb
         - mkdir temp
         - cd temp
         - cmake -DCMAKE_INSTALL_PREFIX=/usr ..
@@ -83,9 +86,11 @@ build:amd64:
         - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/libjpeg-turbo/libjpeg-turbo_${LIBJPEG_TURBO_VERSION}_${ARCH}.deb
         - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/libuv/libuv_${LIBUV_VERSION}_${ARCH}.deb
         - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/uwebsockets/uwebsockets_${LIBUWS_VERSION}_${ARCH}.deb
+        - wget http://openrov-software-nightlies.s3-us-west-2.amazonaws.com/gitlab/${ARCH}/v4l-utils/v4l-utils_${V4L_UTILS_VERSION}_${ARCH}.deb
         - dpkg -i libjpeg-turbo_${LIBJPEG_TURBO_VERSION}_${ARCH}.deb
         - dpkg -i libuv_${LIBUV_VERSION}_${ARCH}.deb
         - dpkg -i uwebsockets_${LIBUWS_VERSION}_${ARCH}.deb
+        - dpkg -i v4l-utils_${V4L_UTILS_VERSION}_${ARCH}.deb
         - mkdir temp
         - cd temp
         - cmake -DCMAKE_INSTALL_PREFIX=/usr ..
