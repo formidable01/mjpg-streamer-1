@@ -320,19 +320,19 @@ int output_init(output_parameter *param)
             }
 
             // s, secure
-            case 3:
             case 4:
+            case 5:
             {
-                DBG( "case 3,4\n" );
+                DBG( "case 4,5\n" );
                 useSSL = true;
                 break;
             }
 
             // c, cert
-            case 5:
             case 6:
+            case 7:
             {
-                DBG("case 5,6\n");
+                DBG("case 6,7\n");
                 char *tempCertPath = realpath( optarg, NULL );
 
                 if( tempCertPath != nullptr )
@@ -351,10 +351,10 @@ int output_init(output_parameter *param)
             }
             
             // k, key
-            case 7:
             case 8:
+            case 9:
             {
-                DBG("case 7,8\n");
+                DBG("case 8,9\n");
                 char *tempKeyPath = realpath( optarg, NULL );
 
                 if( tempKeyPath != nullptr )
@@ -370,6 +370,12 @@ int output_init(output_parameter *param)
                 
                 free( tempKeyPath );
                 break;
+            }
+
+            default:
+            {
+                OPRINT( "ERROR: Should not have gotten here!\n" );
+                return 1;
             }
         }
     }
