@@ -87,6 +87,7 @@ int input_init(input_parameter *param, int plugin_no)
 
     IPRINT("host.............: %s\n", proxy.hostname);
     IPRINT("port.............: %s\n", proxy.port);
+    IPRINT("path.............: %s\n", proxy.path);
 
     return 0;
 }

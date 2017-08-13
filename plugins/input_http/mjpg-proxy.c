@@ -37,35 +37,37 @@
 #include "misc.h"
 
 
-
+#define DELIMITER 2
 #define HEADER 1
 #define CONTENT 0
 #define BUFFER_SIZE 1024 * 100
 #define NETBUFFER_SIZE 1024 * 4
+#define PATHBUFFER_SIZE 256
+#define MAX_DELIM_SIZE 72 // Per RFC 2046
 #define TRUE 1
 #define FALSE 0
 
-const char * CONTENT_LENGTH = "Content-Length:";
 // TODO: this must be decoupled from mjpeg-streamer
-const char * BOUNDARY =     "--boundarydonotcross";
+char * BOUNDARY =     "boundary=";
+char * DEFAULT_PATH = "/?action=stream";
 
 struct extractor_state state;
 
-void init_extractor_state(struct extractor_state * state) {
+void init_extractor_state(struct extractor_state * state, int reset_boundary) {
     state->length = 0;
     state->part = HEADER;
     state->last_four_bytes = 0;
-    state->contentlength.string = CONTENT_LENGTH;
-    state->boundary.string = BOUNDARY;
-    search_pattern_reset(&state->contentlength);
+    if (reset_boundary) 
+        state->boundary.string = BOUNDARY;     
     search_pattern_reset(&state->boundary);
 }
 
-void init_mjpg_proxy(struct extractor_state * state){
-state->hostname = strdup("localhost");
-state->port = strdup("8080");
+void init_mjpg_proxy(struct extractor_state * state) {
+    state->hostname = strdup("localhost");
+    state->port = strdup("8080");
+    state->path = strdup(DEFAULT_PATH);
 
-init_extractor_state(state);
+    init_extractor_state(state, TRUE);
 
 }
 
@@ -75,19 +77,26 @@ init_extractor_state(state);
 // TODO; decouple from mjpeg streamer and ensure content-length processing
 //       for that, we must properly work with headers, not just detect them
 void extract_data(struct extractor_state * state, char * buffer, int length) {
-    int i;
+    int i, j;
+    char * delim_buffer;
+
+    j = 0; // delimiter index
     for (i = 0; i < length && !*(state->should_stop); i++) {
         switch (state->part) {
         case HEADER:
             push_byte(&state->last_four_bytes, buffer[i]);
-            if (is_crlfcrlf(state->last_four_bytes))
+            if (is_crlfcrlf(state->last_four_bytes)) {
                 state->part = CONTENT;
-            else if (is_crlf(state->last_four_bytes))
-                search_pattern_reset(&state->contentlength);
+            }
+            else if (is_crlf(state->last_four_bytes)) {
+                search_pattern_reset(&state->boundary);
+            }
             else {
-                search_pattern_compare(&state->contentlength, buffer[i]);
-                if (search_pattern_matches(&state->contentlength))
-                    DBG("Content length found\n");
+                search_pattern_compare(&state->boundary, buffer[i]);
+                if (search_pattern_matches(&state->boundary)) {
+                    delim_buffer = malloc(MAX_DELIM_SIZE);
+                    state->part = DELIMITER;
+                }
             }
             break;
 
@@ -95,11 +104,39 @@ void extract_data(struct extractor_state * state, char * buffer, int length) {
             state->buffer[state->length++] = buffer[i];
             search_pattern_compare(&state->boundary, buffer[i]);
             if (search_pattern_matches(&state->boundary)) {
-                state->length -= (strlen(state->boundary.string)+2); // magic happens here
+                // remove CRLF and '--' before boundary
+                state->length -= (strlen(state->boundary.string)+4);
                 DBG("Image of length %d received\n", (int)state->length);
                 if (state->on_image_received) // callback
                   state->on_image_received(state->buffer, state->length);
-                init_extractor_state(state); // reset fsm
+                init_extractor_state(state, FALSE); // reset fsm, retain boundary delimiter
+            }
+            break;
+        
+        case DELIMITER:
+            push_byte(&state->last_four_bytes, buffer[i]);
+            if (is_crlfcrlf(state->last_four_bytes)) {
+                DBG("Delimiter found\n");
+                // terminate delimiter, removing 0x0d0a from last two loops
+                delim_buffer[j-1] = 0;
+                state->boundary.string = strdup(delim_buffer);
+                j = 0;
+                search_pattern_reset(&state->boundary);
+                state->part = HEADER;
+
+                DBG("Boundary = %s, len = %d", state->boundary.string, strlen(state->boundary.string));
+                free(delim_buffer);
+                delim_buffer=NULL;
+            }
+            else {
+                // delimiter must follow rfc 2046, max 70 characters plus 
+                // optional surrounding double-quotes and CRLF
+                if (j > MAX_DELIM_SIZE+2) {
+                    DBG("Multipart MIME delimiter longer than RFC 2046 maximum.\n");
+                    break;
+                }
+                memcpy(delim_buffer+j, &buffer[i], 1);
+                j++;
             }
             break;
         }
@@ -108,21 +145,25 @@ void extract_data(struct extractor_state * state, char * buffer, int length) {
 
 }
 
-char request [] = "GET /?action=stream HTTP/1.0\r\n\r\n";
-
 void send_request_and_process_response(struct extractor_state * state) {
     int recv_length;
     char netbuffer[NETBUFFER_SIZE];
+    char request[PATHBUFFER_SIZE] = { 0 }; 
 
-    init_extractor_state(state);
+    init_extractor_state(state, TRUE);
     
+    // build request
+    char prefix [] = "GET ";
+    char suffix [] = " HTTP/1.0\r\n\r\n";
+    snprintf(request, PATHBUFFER_SIZE, "%s %s %s", prefix, state->path, suffix);
+
     // send request
     send(state->sockfd, request, sizeof(request), 0);
 
     // and listen for answer until sockerror or THEY stop us 
     // TODO: we must handle EINTR here, it really might occur
     while ( (recv_length = recv(state->sockfd, netbuffer, sizeof(netbuffer), 0)) > 0 && !*(state->should_stop))
-        extract_data(state, netbuffer, recv_length);
+        extract_data(state, netbuffer, recv_length) ;
 
 }
 
@@ -137,7 +178,8 @@ fprintf(stderr, " --------------------------------------------------------------
                 " [-h | --help]............: show this message\n"
                 " [-H | --host]............: select host to data from, localhost is default\n"
                 " [-p | --port]............: port, defaults to 8080\n"
-                " ---------------------------------------------------------------\n", program_name);
+                " [-u | --path]............: path, defaults to %s\n"
+                " ---------------------------------------------------------------\n", program_name, DEFAULT_PATH);
 }
 // TODO: this must be reworked, too. I don't know how
 void show_version() {
@@ -151,15 +193,16 @@ int parse_cmd_line(struct extractor_state * state, int argc, char * argv []) {
             {"version", no_argument, 0, 'v'},
             {"host", required_argument, 0, 'H'},
             {"port", required_argument, 0, 'p'},
+            {"path", required_argument, 0, 'u'},
             {0,0,0,0}
         };
 
         int index = 0, c = 0;
-        c = getopt_long_only(argc,argv, "hvH:p:", long_options, &index);
+        c = getopt_long_only(argc,argv, "hvH:p:u:", long_options, &index);
 
         if (c==-1) break;
 
-        if (c=='?'){
+        if (c=='?') {
             show_help(argv[0]);
             return 1;
             }
@@ -181,6 +224,10 @@ int parse_cmd_line(struct extractor_state * state, int argc, char * argv []) {
                 free(state->port);
                 state->port = strdup(optarg);
                 break;
+            case 'u' :
+                free(state->path);
+                state->path = strdup(optarg);
+                break;
             }
     }
 
@@ -190,7 +237,7 @@ int parse_cmd_line(struct extractor_state * state, int argc, char * argv []) {
 // TODO: consider using hints for http
 
 // TODO: consider moving delays to plugin command line arguments
-void connect_and_stream(struct extractor_state * state){
+void connect_and_stream(struct extractor_state * state) {
     struct addrinfo * info, * rp;
     int errorcode;
     while (TRUE) {
@@ -238,5 +285,6 @@ void connect_and_stream(struct extractor_state * state){
 void close_mjpg_proxy(struct extractor_state * state){
 free(state->hostname);
 free(state->port);
+free(state->path);
 }
 

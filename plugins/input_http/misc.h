@@ -22,15 +22,14 @@
 int min(int a, int b);
 void write_image(char * image, int length);
 
-// dumb 4 byte storing to detect double CRLF
-int is_crlf(int bytes);
+int is_crlf(unsigned int bytes);
 
-int is_crlfcrlf(int bytes) ;
+int is_crlfcrlf(unsigned int bytes) ;
 void push_byte(int * bytes, char byte);
 
 struct search_pattern {
-    const char * string;
-    const char * current_matched_char;
+    char * string;
+    char * current_matched_char;
 };
 
 void search_pattern_reset(struct search_pattern * pattern);
