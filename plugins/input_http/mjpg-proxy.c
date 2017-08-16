@@ -79,7 +79,7 @@ void init_mjpg_proxy(struct extractor_state * state) {
 void extract_data(struct extractor_state * state, char * buffer, int length) {
     int i, j;
     char * delim_buffer;
-
+ 
     j = 0; // delimiter index
     for (i = 0; i < length && !*(state->should_stop); i++) {
         switch (state->part) {
@@ -91,14 +91,14 @@ void extract_data(struct extractor_state * state, char * buffer, int length) {
             else if (is_crlf(state->last_four_bytes)) {
                 search_pattern_reset(&state->boundary);
             }
-            else {
-                search_pattern_compare(&state->boundary, buffer[i]);
+            else if (search_pattern_compare(&state->boundary, buffer[i])) {
                 if (search_pattern_matches(&state->boundary)) {
-                    delim_buffer = malloc(MAX_DELIM_SIZE);
+                    DBG("Boundary found, extracting delimiter\n");
+                    delim_buffer = malloc(MAX_DELIM_SIZE+2);
                     state->part = DELIMITER;
                 }
             }
-            break;
+            break; 
 
         case CONTENT:
             state->buffer[state->length++] = buffer[i];
@@ -109,7 +109,7 @@ void extract_data(struct extractor_state * state, char * buffer, int length) {
                 DBG("Image of length %d received\n", (int)state->length);
                 if (state->on_image_received) // callback
                   state->on_image_received(state->buffer, state->length);
-                init_extractor_state(state, FALSE); // reset fsm, retain boundary delimiter
+                init_extractor_state(state, FALSE); // reset fsm, retain boundary delimiterinit_e
             }
             break;
         
@@ -130,7 +130,7 @@ void extract_data(struct extractor_state * state, char * buffer, int length) {
             }
             else {
                 // delimiter must follow rfc 2046, max 70 characters plus 
-                // optional surrounding double-quotes and CRLF
+                // optional surrounding double-quotes and CRLF - add these
                 if (j > MAX_DELIM_SIZE+2) {
                     DBG("Multipart MIME delimiter longer than RFC 2046 maximum.\n");
                     break;
@@ -275,16 +275,16 @@ void connect_and_stream(struct extractor_state * state) {
             DBG ("Closing socket\n");
             close (state->sockfd);
             if (*state->should_stop)
-              break;
+                break;
             sleep(1);
         };
     }
 
 }
 
-void close_mjpg_proxy(struct extractor_state * state){
-free(state->hostname);
-free(state->port);
-free(state->path);
+void close_mjpg_proxy(struct extractor_state * state) {
+    free(state->hostname);
+    free(state->port);
+    free(state->path);
 }
 
