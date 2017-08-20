@@ -31,7 +31,7 @@
 #endif
 #endif
 
-#define BUFFER_SIZE 1024 * 100
+#define BUFFER_SIZE 1024 * 100 // starting size
 
 struct extractor_state {
     
@@ -40,8 +40,9 @@ struct extractor_state {
     char * path;
 
     // this is current result
-    char buffer [BUFFER_SIZE];
-    int length;
+    char * buffer;
+    int buflen;
+    int index;
 
     // this is inner state of a parser
 
@@ -50,6 +51,7 @@ struct extractor_state {
     unsigned int last_four_bytes;
     struct search_pattern boundary;
 
+    int delimiter_found;
     int * should_stop;
     void (*on_image_received)(char * data, int length);
         

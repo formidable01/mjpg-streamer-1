@@ -16,6 +16,8 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA    #
 #                                                                              #
 *******************************************************************************/
+#include <ctype.h>
+
 #include "misc.h"
 
 int is_crlf(unsigned int bytes) {
@@ -32,6 +34,32 @@ int is_crlfcrlf(unsigned int bytes) {
         return 1;
     }
     return 0;
+}
+
+/* Returns true if character matches boundary BNF from RFC 2046 */
+int valid_boundary_token(char c) {
+    if (isalnum(c)) {
+        return 1;
+    }
+    switch (c) {
+        case '\'':
+        case '(':
+        case ')':
+        case '+':
+        case '_':
+        case ',':
+        case '-':
+        case '.':
+        case '/':
+        case ':':
+        case '=':
+        case '?':
+        case 13:  // CR
+        case 10:  // LF
+            return 1;
+        default: 
+            return 0;
+    }
 }
 
 void push_byte(int * bytes, char byte) {

@@ -24,7 +24,10 @@ void write_image(char * image, int length);
 
 int is_crlf(unsigned int bytes);
 
-int is_crlfcrlf(unsigned int bytes) ;
+int is_crlfcrlf(unsigned int bytes);
+
+int valid_boundary_token(char c);
+
 void push_byte(int * bytes, char byte);
 
 struct search_pattern {

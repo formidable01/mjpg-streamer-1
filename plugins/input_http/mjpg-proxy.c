@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <getopt.h>
 
@@ -34,13 +35,10 @@
 
 #include "mjpg-proxy.h"
 
-#include "misc.h"
-
 
 #define DELIMITER 2
 #define HEADER 1
 #define CONTENT 0
-#define BUFFER_SIZE 1024 * 100
 #define NETBUFFER_SIZE 1024 * 4
 #define PATHBUFFER_SIZE 256
 #define MAX_DELIM_SIZE 72 // Per RFC 2046
@@ -54,11 +52,28 @@ char * DEFAULT_PATH = "/?action=stream";
 struct extractor_state state;
 
 void init_extractor_state(struct extractor_state * state, int reset_boundary) {
-    state->length = 0;
+    state->index = 0;
     state->part = HEADER;
     state->last_four_bytes = 0;
-    if (reset_boundary) 
-        state->boundary.string = BOUNDARY;     
+    if (reset_boundary) {
+        if (state->boundary.string) 
+            free(state->boundary.string);
+        state->boundary.string = malloc(MAX_DELIM_SIZE);
+        if (state->boundary.string == NULL) {
+            fprintf(stderr, "Failed to allocate memory: %s\n", strerror(errno));
+            return;  // need better way to signal error condition
+        }
+        strncpy(state->boundary.string, BOUNDARY, 10); 
+        state->delimiter_found = FALSE;
+        if (state->buffer) 
+            free(state->buffer);
+        state->buffer = malloc(BUFFER_SIZE);
+        state->buflen = BUFFER_SIZE;
+        if (state->buffer == NULL) {
+            fprintf(stderr, "Failed to allocate memory: %s\n", strerror(errno));
+            return;  // need better way to signal error condition
+        }
+    }  
     search_pattern_reset(&state->boundary);
 }
 
@@ -77,8 +92,8 @@ void init_mjpg_proxy(struct extractor_state * state) {
 // TODO; decouple from mjpeg streamer and ensure content-length processing
 //       for that, we must properly work with headers, not just detect them
 void extract_data(struct extractor_state * state, char * buffer, int length) {
-    int i, j;
-    char * delim_buffer;
+    int i, j, is_quoted;
+    char delim_buffer[MAX_DELIM_SIZE+2];
  
     j = 0; // delimiter index
     for (i = 0; i < length && !*(state->should_stop); i++) {
@@ -91,25 +106,35 @@ void extract_data(struct extractor_state * state, char * buffer, int length) {
             else if (is_crlf(state->last_four_bytes)) {
                 search_pattern_reset(&state->boundary);
             }
-            else if (search_pattern_compare(&state->boundary, buffer[i])) {
+            else if (!state->delimiter_found) {
+                (search_pattern_compare(&state->boundary, buffer[i]));
                 if (search_pattern_matches(&state->boundary)) {
                     DBG("Boundary found, extracting delimiter\n");
-                    delim_buffer = malloc(MAX_DELIM_SIZE+2);
                     state->part = DELIMITER;
                 }
             }
             break; 
 
         case CONTENT:
-            state->buffer[state->length++] = buffer[i];
+            if (state->index >= state->buflen) {
+                DBG("Image exceeds current buffer size of %d.  Increasing by 100KB.\n", state->buflen);
+                state->buffer = realloc(state->buffer, state->index + 102400);
+                if (state->buffer == NULL) {
+                    fprintf(stderr, "Failed to allocate memory: %s\n", strerror(errno));
+                    return;
+                }
+                else
+                    state->buflen = state->buflen + 102400;
+            }
+            state->buffer[state->index++] = buffer[i];
             search_pattern_compare(&state->boundary, buffer[i]);
             if (search_pattern_matches(&state->boundary)) {
-                // remove CRLF and '--' before boundary
-                state->length -= (strlen(state->boundary.string)+4);
-                DBG("Image of length %d received\n", (int)state->length);
+                // remove '--' at line start and boundary from image buffer
+                state->index -= (strlen(state->boundary.string)+2);
+                DBG("Image of length %d received\n", (int)state->index);
                 if (state->on_image_received) // callback
-                  state->on_image_received(state->buffer, state->length);
-                init_extractor_state(state, FALSE); // reset fsm, retain boundary delimiterinit_e
+                  state->on_image_received(state->buffer, state->index);
+                init_extractor_state(state, FALSE); // reset fsm, retain boundary and current buflen
             }
             break;
         
@@ -117,22 +142,65 @@ void extract_data(struct extractor_state * state, char * buffer, int length) {
             push_byte(&state->last_four_bytes, buffer[i]);
             if (is_crlfcrlf(state->last_four_bytes)) {
                 DBG("Delimiter found\n");
-                // terminate delimiter, removing 0x0d0a from last two loops
-                delim_buffer[j-1] = 0;
-                state->boundary.string = strdup(delim_buffer);
+                // terminate delimiter, removing CRLF from the last two loops
+                delim_buffer[j-3] = 0;
+                free(state->boundary.string);
+                state->boundary.string = &delim_buffer[0];
+                // strncpy(state->boundary.string, delim_buffer, j-3);
                 j = 0;
                 search_pattern_reset(&state->boundary);
                 state->part = HEADER;
-
-                DBG("Boundary = %s, len = %d", state->boundary.string, strlen(state->boundary.string));
-                free(delim_buffer);
-                delim_buffer=NULL;
+                state->delimiter_found = TRUE;
+                DBG("Boundary = %s, len = %lu\n", state->boundary.string, strlen(state->boundary.string));
             }
             else {
-                // delimiter must follow rfc 2046, max 70 characters plus 
-                // optional surrounding double-quotes and CRLF - add these
-                if (j > MAX_DELIM_SIZE+2) {
-                    DBG("Multipart MIME delimiter longer than RFC 2046 maximum.\n");
+                // Delimiter must follow RFC 2046 Section 5.1.1
+                //      boundary := 0*69<bchars> bcharsnospace
+                //      bchars := bcharsnospace / " "
+                //      bcharsnospace := DIGIT / ALPHA / "'" / "(" / ")" /
+                //           "+" / "_" / "," / "-" / "." /
+                //           "/" / ":" / "=" / "?"
+                //
+                // and optional surrounding double-quotes
+                if (j == 0) {
+                    if (buffer[i] == '\"' ) {
+                        is_quoted = TRUE;
+                        j++;
+                        continue;
+                    }
+                    else if (buffer[i] == '\r') {
+                        fprintf(stderr, "Invalid empty boundary value.\n");
+                        break;
+                    }
+                    else
+                        is_quoted = FALSE;
+                }
+                if (j > 0 && buffer[i] == '\"') {
+                    if (is_quoted) {
+                        j++;
+                        continue;
+                    }
+                    else {
+                        fprintf(stderr, "Invalid character in multipart MIME delimiter.  Unterminated double quote.\n");
+                        break; 
+                    }
+                }
+                if (!is_quoted && buffer[i] == ' ') {
+                    fprintf(stderr, "Invalid character in multipart MIME delimiter.  Spaces are only allowed in quoted strings.\n");
+                    break;
+                }
+                if (buffer[i] == '\r') {
+                    if (is_quoted && buffer[i-1] == ' ') {
+                        fprintf(stderr, "Invalid character in multipart MIME delimiter.  Quoted strings may not end with space.\n");
+                        break;
+                    }
+                }
+                if (!valid_boundary_token(buffer[i])) {
+                    fprintf(stderr, "Invalid character in multipart MIME delimiter.  Character = %d\n", buffer[i]);
+                    break;
+                }
+                if ((j >= MAX_DELIM_SIZE && !is_quoted) || (j >= MAX_DELIM_SIZE+2 && is_quoted)) {
+                    fprintf(stderr, "Multipart MIME delimiter longer than RFC 2046 maximum 70 characters.\n");
                     break;
                 }
                 memcpy(delim_buffer+j, &buffer[i], 1);
@@ -252,7 +320,7 @@ void connect_and_stream(struct extractor_state * state) {
                 continue;
             }
 
-            DBG("socket value is %d\n", sockfd);
+            DBG("socket value is %d\n", state->sockfd);
             if (connect(state->sockfd, (struct sockaddr *) rp->ai_addr, rp->ai_addrlen)>=0 ) {
                 DBG("connected to host\n");
                 break;
