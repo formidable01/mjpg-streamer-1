@@ -118,7 +118,7 @@ void extract_data(struct extractor_state * state, char * buffer, int length) {
         case CONTENT:
             if (state->index >= state->buflen) {
                 DBG("Image exceeds current buffer size of %d.  Increasing by 100KB.\n", state->buflen);
-                state->buffer = realloc(state->buffer, state->index + 102400);
+                state->buffer = realloc(state->buffer, state->buflen + 102400);
                 if (state->buffer == NULL) {
                     fprintf(stderr, "Failed to allocate memory: %s\n", strerror(errno));
                     return;
