@@ -129,10 +129,28 @@ int input_run(int id)
 
 
 void on_image_received(char * data, int length){
+        int buf_size = 0;
+        unsigned char *tmp_framebuffer = NULL;
+
         /* copy JPG picture to global buffer */
         pthread_mutex_lock(&pglobal->in[plugin_number].db);
 
-        pglobal->in[plugin_number].size = length;
+        /* check if buffer for frame is large enough, increase it if necessary */
+        buf_size = pglobal->in[plugin_number].size;
+        if (length > buf_size)
+        {
+            DBG("increasing input buffer size to %d\n", length+1);
+
+            if((tmp_framebuffer = (unsigned char*)realloc(pglobal->in[plugin_number].buf, length+1)) == NULL) 
+            {
+                pthread_mutex_unlock(&pglobal->in[plugin_number].db);
+                LOG("not enough memory\n");
+                return;
+            }
+
+            pglobal->in[plugin_number].buf = tmp_framebuffer;
+        }
+        pglobal->in[plugin_number].size = length+1;
         memcpy(pglobal->in[plugin_number].buf, data, pglobal->in[plugin_number].size);
 
         /* signal fresh_frame */

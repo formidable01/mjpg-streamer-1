@@ -31,7 +31,8 @@
 #endif
 #endif
 
-#define BUFFER_SIZE 1024 * 100 // starting size
+// starting size 256KB - same as inter-thread buffer at _input.buf
+#define BUFFER_SIZE 256 * 1024
 
 struct extractor_state {
     
