@@ -67,13 +67,6 @@ namespace
     // ------------------------
     uint16_t port = 8200;       // -p,--port
 
-    bool useSSL = false;        // -s,--secure
-    std::string certPath{ "" }; // -c,--cert
-    std::string keyPath{ "" };  // -k, --key
-
-    uS::TLS::Context sslContext;
-
-
     std::atomic<bool> readyToSend( false );
     uv_async_t closeEvent;
     std::thread t;
@@ -93,11 +86,7 @@ void help(void)
     << "\n"     << " The following parameters can be passed to this plugin:"
     << "\n\n"   << " [Required]"
     << "\n"     << " [-p | --port ]..........: Port to listen for websocket connections"
-    << "\n\n"   << " [Optional]"
-    << "\n"     << " [-s | --secure ]........: Use SSL to establish a secure websocket"
-    << "\n"     << " [-c | --cert ]..........: Path to an SSL cert file"
-    << "\n"     << " [-k | --key ]...........: Path to an SSL key file"
-    << "\n"     << " ---------------------------------------------------------------" 
+    << "\n"     << " ---------------------------------------------------------------"
     << std::endl;
 }
 
@@ -110,7 +99,7 @@ void worker_cleanup( void *arg )
 {
     static unsigned char first_run = 1;
 
-    if( !first_run ) 
+    if( !first_run )
     {
         DBG("Already cleaned up ressources\n");
         return;
@@ -119,7 +108,7 @@ void worker_cleanup( void *arg )
     first_run = 0;
     OPRINT( "Cleaning up resources allocated by worker thread\n" );
 
-    if( frame != NULL ) 
+    if( frame != NULL )
     {
         free( frame );
     }
@@ -136,7 +125,7 @@ void worker_cleanup( void *arg )
     t.join();
 }
 
-void close_async_cb( uv_async_t* async ) 
+void close_async_cb( uv_async_t* async )
 {
     uWS::Group<uWS::SERVER> *serverGroup = (uWS::Group<uWS::SERVER>*)(async->data);
 
@@ -160,7 +149,7 @@ void *worker_thread(void *args)
     int frame_size  = 0;
     unsigned char *tmp_framebuffer = nullptr;
 
-    // Create thread which handles ws connections asynchronously 
+    // Create thread which handles ws connections asynchronously
     t = std::thread( []
     {
         uWS::Hub th;
@@ -173,15 +162,7 @@ void *worker_thread(void *args)
 
         std::cout << "Running Server" << std::endl;
 
-        if( useSSL == true )
-        {
-            th.listen( port, sslContext );
-        }
-        else
-        {
-            th.listen( port );
-        }
-
+        th.listen( port );
         readyToSend = true;
 
         th.run();
@@ -192,7 +173,7 @@ void *worker_thread(void *args)
     /* set cleanup handler to cleanup allocated ressources */
     pthread_cleanup_push(worker_cleanup, NULL);
 
-    while(ok >= 0 && !pglobal->stop) 
+    while(ok >= 0 && !pglobal->stop)
     {
         //DBG("waiting for fresh frame\n");
         pthread_mutex_lock(&pglobal->in[input_number].db);
@@ -202,13 +183,13 @@ void *worker_thread(void *args)
         frame_size = pglobal->in[input_number].size;
 
         /* check if buffer for frame is large enough, increase it if necessary */
-        if(frame_size > max_frame_size) 
+        if(frame_size > max_frame_size)
         {
             DBG("increasing buffer size to %d\n", frame_size);
 
             max_frame_size = frame_size + (1 << 16);
 
-            if((tmp_framebuffer = (unsigned char*)realloc(frame, max_frame_size)) == NULL) 
+            if((tmp_framebuffer = (unsigned char*)realloc(frame, max_frame_size)) == NULL)
             {
                 pthread_mutex_unlock(&pglobal->in[input_number].db);
                 LOG("not enough memory\n");
@@ -235,7 +216,7 @@ void *worker_thread(void *args)
 
     /* cleanup now */
     pthread_cleanup_pop(1);
-   
+
     return NULL;
 }
 
@@ -255,7 +236,7 @@ int output_init(output_parameter *param)
     param->argv[0] = (char*)OUTPUT_PLUGIN_NAME;
 
     /* show all parameters for DBG purposes */
-    for( i = 0; i < param->argc; i++ ) 
+    for( i = 0; i < param->argc; i++ )
     {
         DBG( "argv[%d]=%s\n", i, param->argv[i] );
     }
@@ -263,23 +244,17 @@ int output_init(output_parameter *param)
     reset_getopt();
 
     // Parse all options
-    while(1) 
+    while(1)
     {
         int option_index = 0;
         int c = 0;
 
-        static struct option long_options[] = 
+        static struct option long_options[] =
         {
             { "h",      no_argument,        0, 0 },
             { "help",   no_argument,        0, 0 },
             { "p",      required_argument,  0, 0 },
             { "port",   required_argument,  0, 0 },
-            { "s",      no_argument,        0, 0 },
-            { "secure", no_argument,        0, 0 },
-            { "c",      required_argument,  0, 0 },
-            { "cert",   required_argument,  0, 0 },
-            { "k",      required_argument,  0, 0 },
-            { "key",    required_argument,  0, 0 },
             { 0, 0, 0, 0 }
         };
 
@@ -291,15 +266,15 @@ int output_init(output_parameter *param)
         {
             break;
         }
-        
+
         // Unrecognized option
-        if( c == '?' ) 
+        if( c == '?' )
         {
             help();
             return 1;
         }
 
-        switch( option_index ) 
+        switch( option_index )
         {
             // h, help
             case 0:
@@ -310,66 +285,13 @@ int output_init(output_parameter *param)
                 return 1;
                 break;
             }
-            
+
             // p, port
             case 2:
             case 3:
             {
                 DBG( "case 2,3\n" );
                 port = atoi( optarg );
-                break;
-            }
-
-            // s, secure
-            case 4:
-            case 5:
-            {
-                DBG( "case 4,5\n" );
-                useSSL = true;
-                break;
-            }
-
-            // c, cert
-            case 6:
-            case 7:
-            {
-                DBG("case 6,7\n");
-                char *tempCertPath = realpath( optarg, NULL );
-
-                if( tempCertPath != nullptr )
-                {
-                    certPath = std::string( (const char*)tempCertPath );
-                }
-                else
-                {
-                    OPRINT( "ERROR: Invalid certificate file path provided!\n" );
-                    free( tempCertPath );
-                    return 1;
-                }
-                
-                free( tempCertPath );
-                break;
-            }
-            
-            // k, key
-            case 8:
-            case 9:
-            {
-                DBG("case 8,9\n");
-                char *tempKeyPath = realpath( optarg, NULL );
-
-                if( tempKeyPath != nullptr )
-                {
-                    keyPath = std::string( (const char*)tempKeyPath );
-                }
-                else
-                {
-                    OPRINT( "ERROR: Invalid key file path provided!\n" );
-                    free( tempKeyPath );
-                    return 1;
-                }
-                
-                free( tempKeyPath );
                 break;
             }
 
@@ -388,31 +310,10 @@ int output_init(output_parameter *param)
         return 1;
     }
 
-    // Validate SSL cert file information, if necessary, and create SSL context
-    if( useSSL == true )
-    {
-        if( certPath.length() == 0 || keyPath.length() == 0 )
-        {
-            OPRINT( "ERROR: Specified SSL, but did not provide valid cert and key file paths!\n" );
-            return 1;
-        }
-        else
-        {
-            sslContext = uS::TLS::createContext( certPath.c_str(), keyPath.c_str() );
-
-            if( !sslContext )
-            {
-                OPRINT( "ERROR: Failed to create SSL context!\n" );
-                return 1;
-            }
-        }
-    }
-
-    
     pglobal = param->global;
 
     // Validate input plugin count
-    if( !( input_number < pglobal->incnt ) ) 
+    if( !( input_number < pglobal->incnt ) )
     {
         OPRINT( "ERROR: the %d input_plugin number is too much only %d plugins loaded\n", input_number, pglobal->incnt );
         return 1;

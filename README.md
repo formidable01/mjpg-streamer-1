@@ -3,8 +3,11 @@
 mjpg-streamer takes JPGs from Linux-UVC compatible webcams, filesystem or other input plugins and streams them as M-JPEG via HTTP (and now websockets!) to webbrowsers, VLC and other software.
 
 ### OpenROV Fork
-This is a fork of the mjpg-streamer project, maintained by OpenROV and used primarily in our underwater drone platform for streaming live video to the browser. 
+This is a fork of the mjpg-streamer project, maintained by OpenROV and used primarily in our underwater drone platform for streaming live video to the browser.
 Some plugins and functionality have been trimmed out. Not all plugins are guaranteed to work as we maintain only the subset that we employ in our codebase.
+
+### SCINI Fork
+This is a fork of the OpenROV fork for use in the SCINI underwater ROV.  Removed OpenSSL 1.0.x dependency and fixed issues with input_http.so plugin to support arbitrary MIME headers and better buffering of MJPEG streams.
 
 ### Build Instructions
 
@@ -31,7 +34,6 @@ make install
 #### output_ws
 - uWebSockets 0.10+
 - libuv 1.3+
-- OpenSSL 1.0.x
 - zLib 1.x
 
 ### Usage
