@@ -1613,7 +1613,7 @@ void send_input_JSON(int fd, int input_number)
     sprintf(buffer, "HTTP/1.0 200 OK\r\n" \
             "Content-type: %s\r\n" \
             STD_HEADER \
-            "\r\n", "application/x-javascript");
+            "\r\n", "application/javascript");
 
     DBG("Serving the input plugin %d descriptor JSON file\n", input_number);
 
@@ -1830,7 +1830,7 @@ void send_program_JSON(int fd)
     sprintf(buffer, "HTTP/1.0 200 OK\r\n" \
             "Content-type: %s\r\n" \
             STD_HEADER \
-            "\r\n", "application/x-javascript");
+            "\r\n", "application/javascript");
 
     DBG("Serving the program descriptor JSON file\n");
 
@@ -1926,7 +1926,7 @@ void send_output_JSON(int fd, int input_number)
     sprintf(buffer, "HTTP/1.0 200 OK\r\n" \
             "Content-type: %s\r\n" \
             STD_HEADER \
-            "\r\n", "application/x-javascript");
+            "\r\n", "application/javascript");
 
     DBG("Serving the output plugin %d descriptor JSON file\n", input_number);
 
@@ -2031,7 +2031,7 @@ void send_clients_JSON(int fd)
     sprintf(buffer, "HTTP/1.0 200 OK\r\n" \
             "Content-type: %s\r\n" \
             STD_HEADER \
-            "\r\n", "application/x-javascript");
+            "\r\n", "application/javascript");
 
     DBG("Serving the clients JSON file\n");
 
