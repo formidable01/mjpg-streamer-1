@@ -262,14 +262,14 @@ void *worker_thread(void *arg)
             }
 
             /* prepare string, add time and date values */
-            if(strftime(buffer1, sizeof(buffer1), "%%s/%Y_%m_%d_%H_%M_%S_%%03d_picture_%%09llu.jpg", now) == 0) {
+            if(strftime(buffer1, sizeof(buffer1), "%%s/%Y_%m_%d_%H_%M_%S_%%03d.jpg", now) == 0) {
                 OPRINT("strftime returned 0\n");
                 free(frame); frame = NULL;
                 return NULL;
             }
 
-            /* finish filename by adding the foldername and a counter value */
-            snprintf(buffer2, sizeof(buffer2), buffer1, folder, msec, counter);
+            /* finish filename by adding the foldername */
+            snprintf(buffer2, sizeof(buffer2), buffer1, folder, msec);
 
             counter++;
 
