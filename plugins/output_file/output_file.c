@@ -36,6 +36,7 @@
 #include <time.h>
 #include <syslog.h>
 #include <dirent.h>
+#include <sys/time.h>
 
 #include "output_file.h"
 
@@ -246,7 +247,14 @@ void *worker_thread(void *arg)
             memset(buffer2, 0, sizeof(buffer2));
 
             /* get current time */
-            t = time(NULL);
+            struct timeval tv;
+            if (gettimeofday(&tv, NULL) != 0) {
+                perror("gettimeofday");
+                return NULL;
+            }
+            t = tv.tv_sec;
+            int msec = tv.tv_usec/1000;
+
             now = localtime(&t);
             if(now == NULL) {
                 perror("localtime");
@@ -254,14 +262,14 @@ void *worker_thread(void *arg)
             }
 
             /* prepare string, add time and date values */
-            if(strftime(buffer1, sizeof(buffer1), "%%s/%Y_%m_%d_%H_%M_%S_picture_%%09llu.jpg", now) == 0) {
+            if(strftime(buffer1, sizeof(buffer1), "%%s/%Y_%m_%d_%H_%M_%S_%%03d.jpg", now) == 0) {
                 OPRINT("strftime returned 0\n");
                 free(frame); frame = NULL;
                 return NULL;
             }
 
-            /* finish filename by adding the foldername and a counter value */
-            snprintf(buffer2, sizeof(buffer2), buffer1, folder, counter);
+            /* finish filename by adding the foldername */
+            snprintf(buffer2, sizeof(buffer2), buffer1, folder, msec);
 
             counter++;
 
