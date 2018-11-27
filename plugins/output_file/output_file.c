@@ -247,14 +247,13 @@ void *worker_thread(void *arg)
             memset(buffer2, 0, sizeof(buffer2));
 
             /* get current time */
-			struct timeval tv;
-			if (gettimeofday(&tv, NULL) != 0)
-			{
-				perror("gettimeofday");
-				return NULL;
-			}
-			t = tv.tv_sec;
-			int msec = tv.tv_usec/1000;
+            struct timeval tv;
+            if (gettimeofday(&tv, NULL) != 0) {
+                perror("gettimeofday");
+                return NULL;
+            }
+            t = tv.tv_sec;
+            int msec = tv.tv_usec/1000;
 
             now = localtime(&t);
             if(now == NULL) {
